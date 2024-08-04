@@ -235,10 +235,23 @@ export async function getParentCommits(
       log.debug(`Adding last branch build commit ${lastBuild.commit} to commits with builds`);
       initialCommitsWithBuilds.push(lastBuild.commit);
     } else {
-      log.debug(
-        `Last branch build commit ${lastBuild.commit} not in index, blindly appending to parents`
-      );
-      extraParentCommits.push(lastBuild.commit);
+      log.debug(`Attempting to fetch last branch build commit ${lastBuild.commit} from remote.`);
+      try {
+        await execGitCommand(`git fetch origin ${lastBuild.commit}`);
+      } catch (error) {
+        log.debug('Error while fetching', error);
+      }
+      if (await commitExists(lastBuild.commit)) {
+        log.debug(
+          `Successfully fetched last branch build commit ${lastBuild.commit} from remote, adding to commits with builds`
+        );
+        initialCommitsWithBuilds.push(lastBuild.commit);
+      } else {
+        log.debug(
+          `Last branch build commit ${lastBuild.commit} not in index, blindly appending to parents`
+        );
+        extraParentCommits.push(lastBuild.commit);
+      }
     }
   }
 
@@ -273,15 +286,26 @@ export async function getParentCommits(
     const lastHeadBuildCommit = pullRequest.lastHeadBuild?.commit;
     if (lastHeadBuildCommit) {
       if (await commitExists(lastHeadBuildCommit)) {
-        log.debug(
-          `Adding merged PR build commit ${lastHeadBuildCommit} to commits with builds`
-        );
+        log.debug(`Adding merged PR build commit ${lastHeadBuildCommit} to commits with builds`);
         commitsWithBuilds.push(lastHeadBuildCommit);
       } else {
-        log.debug(
-          `Merged PR build commit ${lastHeadBuildCommit} not in index, blindly appending to parents`
-        );
-        extraParentCommits.push(lastHeadBuildCommit);
+        log.debug(`Attempting to fetch last head build commit ${lastHeadBuildCommit} from remote.`);
+        try {
+          await execGitCommand(`git fetch origin ${lastHeadBuildCommit}`);
+        } catch (error) {
+          log.debug('Error while fetching', error);
+        }
+        if (await commitExists(lastHeadBuildCommit)) {
+          log.debug(
+            `Successfully fetched last head build commit ${lastHeadBuildCommit} from remote, adding to commits with builds`
+          );
+          initialCommitsWithBuilds.push(lastHeadBuildCommit);
+        } else {
+          log.debug(
+            `Merged PR build commit ${lastHeadBuildCommit} not in index, blindly appending to parents`
+          );
+          extraParentCommits.push(lastHeadBuildCommit);
+        }
       }
     }
   }
